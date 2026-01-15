@@ -1,11 +1,13 @@
 package api
 
 import (
-	"main/DistributedTaskScheduler/services/internals/redis"
 	"net/http"
+
+	redisqueue "DistributedTaskScheduler/services/internals/redis"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"github.com/redis/go-redis/v9"
 )
 
 type TaskRequest struct {
@@ -28,7 +30,7 @@ func CreateTask(rdb *redis.Client) gin.HandlerFunc {
 		}
 		taskID := uuid.New().String()
 
-		err := redis.PushTask(rdb, taskID, req.Payload)
+		err := redisqueue.PushTask(rdb, taskID)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{
 				"error": "failed to queue task",

@@ -1,16 +1,19 @@
 package redis
 
 import (
-	"github.com/gin-gonic/gin"
+	"context"
+
 	"github.com/redis/go-redis/v9"
 )
 
-func PushTask(ctx gin.Context, rdb *redis.Client, taskID string) error {
-	return rdb.LPush(ctx, "tasks_queue", taskID).Err()
+const TaskQueue = "tasks:pending"
+
+func PushTask(ctx context.Context, rdb *redis.Client, taskID string) error {
+	return rdb.LPush(ctx, TaskQueue, taskID).Err()
 }
 
-func PopTask(ctx gin.Context, rdb *redis.Client) (string, error) {
-	result, err := rdb.BRPop(ctx, 0, "tasks_queue").Result()
+func PopTask(ctx context.Context, rdb *redis.Client) (string, error) {
+	result, err := rdb.BRPop(ctx, 0, TaskQueue).Result()
 	if err != nil {
 		return "", err
 	}

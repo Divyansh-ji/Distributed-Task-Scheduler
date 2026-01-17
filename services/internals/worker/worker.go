@@ -1,7 +1,9 @@
 package worker
 
 import (
+	"DistributedTaskScheduler/services/internals/api"
 	"DistributedTaskScheduler/services/internals/redis"
+	"DistributedTaskScheduler/services/internals/tasks"
 	"context"
 	"log"
 )
@@ -25,10 +27,22 @@ func worker(ctx context.Context, rdb *redis.Client) {
 				log.Println(err)
 				continue
 			}
-			processTask(taskID)
+			processTask(ctx, taskID)
 		}
 	}
 }
-func processTask(taskID int) {
+func processTask(ctx context.Context, taskID string) {
+	switch taskID {
+	case "sendEmail":
+		// Create a dummy api.TaskRequest or fetch the actual task details as needed
+		var req api.TaskRequest
+		go tasks.SendEmail(ctx, req)
+
+	case "generateReport":
+		var reqs api.TaskRequest
+
+		go tasks.GenerateReport(ctx, reqs)
+
+	}
 
 }

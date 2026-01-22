@@ -2,8 +2,7 @@ package api
 
 import (
 	"net/http"
-
-	redisqueue "DistributedTaskScheduler/services/internals/redis"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -30,17 +29,27 @@ func CreateTask(rdb *redis.Client) gin.HandlerFunc {
 		}
 		taskID := uuid.New().String()
 
-		err := redisqueue.PushTask(rdb, taskID)
+		// 🔹 Decide execution time
+		executeAt := time.Now() // immediate execution
+		// executeAt := time.Now().Add(10 * time.Second) // delayed example
+
+		// 🔹 Add task to scheduler (ZSET)
+		err := redisqueue.scheduler.TaskAdd(
+			c.Request.Context(),
+			rdb,
+			taskID,
+			executeAt,
+		)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{
-				"error": "failed to queue task",
+				"error": "failed to schedule task",
 			})
 			return
 		}
 
 		c.JSON(http.StatusOK, TaskResponse{
 			TaskID: taskID,
-			Status: "queued",
+			Status: "scheduled",
 		})
 	}
 }

@@ -1,12 +1,15 @@
 package api
 
 import (
+	"DistributedTaskScheduler/services/internals/scheduler"
 	"net/http"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/redis/go-redis/v9"
+	// Import the package where TaskAdd is defined, e.g.:
+	// "yourmodule/scheduler"
 )
 
 type TaskRequest struct {
@@ -34,7 +37,7 @@ func CreateTask(rdb *redis.Client) gin.HandlerFunc {
 		// executeAt := time.Now().Add(10 * time.Second) // delayed example
 
 		// 🔹 Add task to scheduler (ZSET)
-		err := redisqueue.scheduler.TaskAdd(
+		err := scheduler.TaskAdd(
 			c.Request.Context(),
 			rdb,
 			taskID,

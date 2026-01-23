@@ -2,18 +2,14 @@ package worker
 
 import (
 	"DistributedTaskScheduler/services/internals/api"
-	"DistributedTaskScheduler/services/internals/redis"
 	"DistributedTaskScheduler/services/internals/tasks"
 	"context"
 	"log"
+
+	"github.com/redis/go-redis/v9"
 )
 
-func StartWorker(n int) {
-	for i := 0; i < n; i++ {
-		go worker(ctx, rdb)
-
-	}
-}
+const ReadyQueueKey = "scheduler:ready_queue"
 
 func worker(ctx context.Context, rdb *redis.Client) {
 	for {
@@ -22,12 +18,17 @@ func worker(ctx context.Context, rdb *redis.Client) {
 			log.Println("Worker stopping")
 			return
 		default:
-			taskID, err := redis.PopTask(ctx, rdb)
+			result, err := rdb.BRPop(ctx, 0, ReadyQueueKey).Result()
 			if err != nil {
 				log.Println(err)
 				continue
 			}
-			processTask(ctx, taskID)
+			if len(result) < 2 {
+				log.Println("Invalid BRPop result:", result)
+				continue
+			}
+			taskID := result[1]
+			go processTask(ctx, taskID)
 		}
 	}
 }

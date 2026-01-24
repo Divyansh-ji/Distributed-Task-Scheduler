@@ -51,6 +51,8 @@ func (s *Scheduler) Start(ctx context.Context) {
 	}
 }
 func (s *Scheduler) moveDueTasks(ctx context.Context) {
+	log.Println("entered moveDueTasks")
+
 	now := time.Now().Unix()
 
 	taskID, err := s.rdb.ZRangeByScore(
@@ -62,6 +64,7 @@ func (s *Scheduler) moveDueTasks(ctx context.Context) {
 			Count: 10,
 		},
 	).Result()
+	log.Println("redis call returned")
 	if err != nil {
 		log.Println("error fetching due task:", err)
 		return

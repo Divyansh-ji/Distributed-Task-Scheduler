@@ -31,6 +31,7 @@ func NewScheduler(rdb *redis.Client, interval time.Duration) *Scheduler {
 		rdb:      rdb,
 		interval: interval,
 	}
+
 }
 func (s *Scheduler) Start(ctx context.Context) {
 	log.Println("scheduler started")
@@ -44,19 +45,25 @@ func (s *Scheduler) Start(ctx context.Context) {
 			log.Println("scheduler stopping")
 			return
 
-		case <-time.After(s.interval):
+		case <-ticker.C:
 			s.moveDueTasks(ctx)
 
 		}
 	}
 }
 func (s *Scheduler) moveDueTasks(ctx context.Context) {
-	log.Println("entered moveDueTasks")
+	// immediate exit if shutting down
+	if ctx.Err() != nil {
+		return
+	}
+
+	redisCtx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
+	defer cancel()
 
 	now := time.Now().Unix()
 
-	taskID, err := s.rdb.ZRangeByScore(
-		ctx,
+	taskIDs, err := s.rdb.ZRangeByScore(
+		redisCtx,
 		DelayedTaskKey,
 		&redis.ZRangeBy{
 			Min:   "-inf",
@@ -64,22 +71,27 @@ func (s *Scheduler) moveDueTasks(ctx context.Context) {
 			Count: 10,
 		},
 	).Result()
-	log.Println("redis call returned")
+
 	if err != nil {
+		if err == context.DeadlineExceeded {
+			log.Println("redis timeout, skipping cycle")
+			return
+		}
 		log.Println("error fetching due task:", err)
 		return
 	}
-	for _, taskId := range taskID {
 
-		if err := s.rdb.ZRem(ctx, DelayedTaskKey, taskId).Err(); err != nil {
-			log.Println("failed to remove task :", taskId)
+	for _, taskID := range taskIDs {
+		if ctx.Err() != nil {
+			return
+		}
+
+		if err := s.rdb.ZRem(redisCtx, DelayedTaskKey, taskID).Err(); err != nil {
 			continue
 		}
-		//push to ready Queue
-		if err := s.rdb.LPush(ctx, ReadyQueueKey, taskId).Err(); err != nil {
-			log.Println("failed to ready queue:", taskId)
+		if err := s.rdb.LPush(redisCtx, ReadyQueueKey, taskID).Err(); err != nil {
 			continue
 		}
-		log.Println("task moved to ready queue :", taskId)
+		log.Println("task moved to ready queue:", taskID)
 	}
 }

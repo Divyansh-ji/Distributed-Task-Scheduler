@@ -23,7 +23,7 @@ func main() {
 	rdb := redis.NewRedisClient()
 
 	// scheduler
-	s := scheduler.NewScheduler(rdb, 500*time.Millisecond)
+	s := scheduler.NewScheduler(rdb, 10*time.Millisecond)
 	go s.Start(ctx)
 
 	// worker
@@ -43,5 +43,5 @@ func main() {
 	}()
 
 	log.Println("🚀 Gin API server running on :8080")
-	router.Run(":8080")
+	router.Run(":8180")
 }

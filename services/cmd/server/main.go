@@ -3,9 +3,6 @@ package main
 import (
 	"context"
 	"log"
-	"os"
-	"os/signal"
-	"syscall"
 	"time"
 
 	"DistributedTaskScheduler/services/internals/api"
@@ -31,16 +28,6 @@ func main() {
 
 	// api
 	router := api.RegisterRoutes(rdb)
-
-	// graceful shutdown (VERY IMPORTANT)
-	go func() {
-		sigCh := make(chan os.Signal, 1)
-		signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
-		<-sigCh
-
-		log.Println("🛑 Shutting down services...")
-		cancel()
-	}()
 
 	log.Println("🚀 Gin API server running on :8080")
 	router.Run(":8180")

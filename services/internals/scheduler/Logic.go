@@ -44,7 +44,7 @@ func (s *Scheduler) Start(ctx context.Context) {
 			log.Println("scheduler stopping")
 			return
 
-		case <-ticker.C:
+		case <-time.After(s.interval):
 			s.moveDueTasks(ctx)
 
 		}

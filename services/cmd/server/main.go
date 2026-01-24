@@ -23,7 +23,7 @@ func main() {
 	rdb := redis.NewRedisClient()
 
 	// scheduler
-	s := scheduler.NewScheduler(rdb, 10*time.Millisecond)
+	s := scheduler.NewScheduler(rdb, 1*time.Millisecond)
 	go s.Start(ctx)
 
 	// worker

@@ -6,7 +6,7 @@ import (
 	"fmt"
 )
 
-func SendEmail(ctx context.Context, payload api.TaskRequest) error {
+func SendEmail(ctx context.Context, payload api.CreateTaskRequest) error {
 	email := payload
 	fmt.Println("Hey this is your email", email)
 	return nil

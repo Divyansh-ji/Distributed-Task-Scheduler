@@ -13,7 +13,7 @@ import (
 type Task struct {
 	ID      string
 	Type    string
-	Payload api.TaskRequest
+	Payload api.CreateTaskRequest
 }
 
 const ReadyQueueKey = "scheduler:ready_queue"
@@ -37,13 +37,25 @@ func Worker(ctx context.Context, rdb *redis.Client) {
 				continue
 			}
 
-			taskJSON := result[1]
+			taskID := result[1]
 
 			var task Task
-			if err := json.Unmarshal([]byte(taskJSON), &task); err != nil {
+			raw, err := rdb.Get(ctx, "task:"+taskID).Bytes()
+			if err != nil {
+				if err == redis.Nil {
+					log.Println("Task details missing for ID:", taskID)
+				} else {
+					log.Println("Failed to fetch task details:", err)
+				}
+				continue
+			}
+
+			if err := json.Unmarshal(raw, &task); err != nil {
 				log.Println("Failed to unmarshal task:", err)
 				continue
 			}
+
+			log.Printf("Processing task [%s] type=%s", task.ID, task.Type)
 
 			// one task = one execution
 			processTask(ctx, task)

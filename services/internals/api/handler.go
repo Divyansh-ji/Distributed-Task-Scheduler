@@ -2,6 +2,7 @@ package api
 
 import (
 	"DistributedTaskScheduler/services/internals/scheduler"
+	"encoding/json"
 	"net/http"
 	"time"
 
@@ -12,7 +13,9 @@ import (
 	// "yourmodule/scheduler"
 )
 
-type TaskRequest struct {
+// CreateTaskRequest wraps the task type and payload for scheduling.
+type CreateTaskRequest struct {
+	Type    string `json:"type" binding:"required"`
 	Payload string `json:"payload" binding:"required"`
 }
 
@@ -23,7 +26,7 @@ type TaskResponse struct {
 
 func CreateTask(rdb *redis.Client) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		var req TaskRequest
+		var req CreateTaskRequest
 		if err := c.BindJSON(&req); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{
 				"error": "invalid request body",
@@ -36,8 +39,35 @@ func CreateTask(rdb *redis.Client) gin.HandlerFunc {
 		executeAt := time.Now() // immediate execution
 		// executeAt := time.Now().Add(10 * time.Second) // delayed example
 
+		// 🔹 Persist full task details by ID for worker consumption
+		taskEnvelope := struct {
+			ID      string `json:"id"`
+			Type    string `json:"type"`
+			Payload string `json:"payload"`
+		}{
+			ID:      taskID,
+			Type:    req.Type,
+			Payload: req.Payload,
+		}
+
+		raw, err := json.Marshal(taskEnvelope)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"error": "failed to encode task",
+			})
+			return
+		}
+
+		// Store task details with a TTL to avoid indefinite buildup
+		if err := rdb.Set(c.Request.Context(), "task:"+taskID, raw, 1*time.Hour).Err(); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"error": "failed to persist task",
+			})
+			return
+		}
+
 		// 🔹 Add task to scheduler (ZSET)
-		err := scheduler.TaskAdd(
+		err = scheduler.TaskAdd(
 			c.Request.Context(),
 			rdb,
 			taskID,

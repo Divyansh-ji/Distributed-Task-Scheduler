@@ -15,8 +15,10 @@ import (
 
 // CreateTaskRequest wraps the task type and payload for scheduling.
 type CreateTaskRequest struct {
-	Type    string `json:"type" binding:"required"`
-	Payload string `json:"payload" binding:"required"`
+	Type        string `json:"type" binding:"required"`
+	Payload     string `json:"payload" binding:"required"`
+	RetryCount  int    `json:"retryCount"`
+	NextRetryAt int64  `json:"nextRetryAt"`
 }
 
 type TaskResponse struct {

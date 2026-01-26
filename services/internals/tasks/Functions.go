@@ -12,7 +12,7 @@ func SendEmail(ctx context.Context, payload api.CreateTaskRequest) error {
 	return nil
 }
 
-func GenerateReport(ctx context.Context, payload api.TaskRequest) error {
+func GenerateReport(ctx context.Context, payload api.CreateTaskRequest) error {
 	report := payload
 	fmt.Println("The report generated", report)
 	return nil

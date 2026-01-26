@@ -4,22 +4,25 @@ import (
 	"DistributedTaskScheduler/services/internals/scheduler"
 	"encoding/json"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/redis/go-redis/v9"
-	// Import the package where TaskAdd is defined, e.g.:
-	// "yourmodule/scheduler"
 )
 
-// CreateTaskRequest wraps the task type and payload for scheduling.
 type CreateTaskRequest struct {
 	Type        string `json:"type" binding:"required"`
 	Payload     string `json:"payload" binding:"required"`
 	RetryCount  int    `json:"retryCount"`
 	NextRetryAt int64  `json:"nextRetryAt"`
 }
+
+var (
+	taskIDCounter int = 0
+	taskIDMu      sync.Mutex
+)
 
 type TaskResponse struct {
 	TaskID string `json:"task_id"`
@@ -37,9 +40,7 @@ func CreateTask(rdb *redis.Client) gin.HandlerFunc {
 		}
 		taskID := uuid.New().String()
 
-		// 🔹 Decide execution time
-		executeAt := time.Now() // immediate execution
-		// executeAt := time.Now().Add(10 * time.Second) // delayed example
+		executeAt := time.Now()
 
 		// 🔹 Persist full task details by ID for worker consumption
 		taskEnvelope := struct {

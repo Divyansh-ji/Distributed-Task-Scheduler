@@ -2,6 +2,7 @@ package main
 
 import (
 	"DistributedTaskScheduler/services/internals/api"
+	"DistributedTaskScheduler/services/internals/kafka"
 	"DistributedTaskScheduler/services/internals/redis"
 	"DistributedTaskScheduler/services/internals/scheduler"
 	"DistributedTaskScheduler/services/internals/worker"
@@ -15,21 +16,13 @@ import (
 )
 
 func main() {
-	// --------------------------------------------------
-	// Root cancellable context
-	// --------------------------------------------------
+
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	// --------------------------------------------------
-	// OS signal handling (Ctrl+C, Docker, K8s)
-	// --------------------------------------------------
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
 
-	// --------------------------------------------------
-	// Redis (long-lived dependency)
-	// --------------------------------------------------
 	rdb := redis.NewRedisClient()
 	defer func() {
 		log.Println("🔌 Closing Redis connection...")
@@ -37,27 +30,19 @@ func main() {
 			log.Printf("Redis close error: %v", err)
 		}
 	}()
+	producer := kafka.NewKafkaProducer([]string{"localhost:9092"})
 
-	// --------------------------------------------------
-	// Scheduler
-	// --------------------------------------------------
-	s := scheduler.NewScheduler(rdb, 500*time.Millisecond)
+	s := scheduler.NewScheduler(rdb, producer, 500*time.Millisecond)
 	go func() {
 		log.Println("⏱ Scheduler started")
 		s.Start(ctx)
 	}()
 
-	// --------------------------------------------------
-	// Worker
-	// --------------------------------------------------
 	go func() {
 		log.Println("👷 Worker started")
 		worker.Worker(ctx, rdb)
 	}()
 
-	// --------------------------------------------------
-	// HTTP Server (Gin)
-	// --------------------------------------------------
 	router := api.RegisterRoutes(rdb)
 
 	server := &http.Server{
@@ -72,16 +57,10 @@ func main() {
 		}
 	}()
 
-	// --------------------------------------------------
-	// Wait for shutdown signal
-	// --------------------------------------------------
 	<-sigCh
 	log.Println("🛑 Shutdown signal received")
 
-	// --------------------------------------------------
-	// Graceful shutdown
-	// --------------------------------------------------
-	cancel() // stop scheduler & workers
+	cancel()
 
 	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer shutdownCancel()

@@ -4,7 +4,6 @@ import (
 	"DistributedTaskScheduler/services/internals/scheduler"
 	"encoding/json"
 	"net/http"
-	"sync"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -18,11 +17,6 @@ type CreateTaskRequest struct {
 	RetryCount  int    `json:"retryCount"`
 	NextRetryAt int64  `json:"nextRetryAt"`
 }
-
-var (
-	taskIDCounter int = 0
-	taskIDMu      sync.Mutex
-)
 
 type TaskResponse struct {
 	TaskID string `json:"task_id"`

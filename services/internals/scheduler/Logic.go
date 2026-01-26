@@ -14,8 +14,12 @@ const (
 	ReadyQueueKey  = "scheduler:ready_queue"
 )
 
+type EventProducer interface {
+	PublishTaskReady(ctx context.Context, taskID string) error
+}
 type Scheduler struct {
 	rdb      *redis.Client
+	producer EventProducer
 	interval time.Duration
 }
 
@@ -26,13 +30,18 @@ func TaskAdd(ctx context.Context, rdb *redis.Client, taskID string, executeAt ti
 	}).Err()
 }
 
-func NewScheduler(rdb *redis.Client, interval time.Duration) *Scheduler {
+func NewScheduler(
+	rdb *redis.Client,
+	producer EventProducer,
+	interval time.Duration,
+) *Scheduler {
 	return &Scheduler{
 		rdb:      rdb,
+		producer: producer,
 		interval: interval,
 	}
-
 }
+
 func (s *Scheduler) Start(ctx context.Context) {
 	log.Println("scheduler started")
 
@@ -52,7 +61,7 @@ func (s *Scheduler) Start(ctx context.Context) {
 	}
 }
 func (s *Scheduler) moveDueTasks(ctx context.Context) {
-	// immediate exit if shutting down
+
 	if ctx.Err() != nil {
 		return
 	}
@@ -89,9 +98,14 @@ func (s *Scheduler) moveDueTasks(ctx context.Context) {
 		if err := s.rdb.ZRem(redisCtx, DelayedTaskKey, taskID).Err(); err != nil {
 			continue
 		}
-		if err := s.rdb.LPush(redisCtx, ReadyQueueKey, taskID).Err(); err != nil {
+		err = s.producer.PublishTaskReady(redisCtx, taskID)
+		if err != nil {
+			_ = s.rdb.ZAdd(redisCtx, DelayedTaskKey, redis.Z{
+				Score:  float64(now),
+				Member: taskID,
+			}).Err()
 			continue
 		}
-		log.Println("task moved to ready queue:", taskID)
+		log.Println("Task_ready_queue", taskID)
 	}
 }

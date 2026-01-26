@@ -30,7 +30,10 @@ func main() {
 			log.Printf("Redis close error: %v", err)
 		}
 	}()
-	producer := kafka.NewKafkaProducer([]string{"localhost:9092"})
+	producer, err := kafka.NewTaskProducer([]string{"localhost :9092"}, "task.ready")
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	s := scheduler.NewScheduler(rdb, producer, 500*time.Millisecond)
 	go func() {

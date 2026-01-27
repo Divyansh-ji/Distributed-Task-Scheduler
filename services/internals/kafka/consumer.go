@@ -2,6 +2,7 @@ package kafka
 
 import (
 	"context"
+	"encoding/json"
 
 	"github.com/IBM/sarama"
 )
@@ -39,4 +40,25 @@ func NewTaskConsumer(
 		ctx:     ctx,
 		handler: handler,
 	}, nil
+}
+func (c *TaskEventConsumer) ConsumeClaim(
+	session sarama.ConsumerGroupSession,
+	claim sarama.ConsumerGroupClaim,
+) error {
+	for msg := range claim.Messages() {
+		var payload struct {
+			TaskID string `json:"task_id"`
+		}
+		if err := json.Unmarshal(msg.Value, &payload); err != nil {
+			session.MarkMessage(msg, "")
+			continue
+		}
+		err := c.handler.HandleTaskReady(c.ctx, payload.TaskID)
+		if err != nil {
+			//retry dlq
+		}
+		session.MarkMessage(msg, "")
+
+	}
+	return nil
 }

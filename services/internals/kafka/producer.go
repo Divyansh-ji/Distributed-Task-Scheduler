@@ -44,6 +44,3 @@ func (p *TaskEventProducer) PublishTaskReady(ctx context.Context, taskID string)
 	_, _, err := p.producer.SendMessage(msg)
 	return err
 }
-func (p *TaskEventProducer) close() error {
-	return p.producer.Close()
-}

@@ -1,8 +1,10 @@
 package api
 
 import (
+	"DistributedTaskScheduler/services/db/storage"
 	"DistributedTaskScheduler/services/internals/scheduler"
 	"DistributedTaskScheduler/services/internals/tasks"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -27,7 +29,7 @@ type TaskResponse struct {
 
 const TaskKey = "task:%s"
 
-func CreateTask(rdb *redis.Client) gin.HandlerFunc {
+func CreateTask(rdb *redis.Client, db *sql.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var req CreateTaskRequest
 		if err := c.BindJSON(&req); err != nil {
@@ -42,10 +44,10 @@ func CreateTask(rdb *redis.Client) gin.HandlerFunc {
 
 		// 🔹 Persist full task details by ID for worker consumption using shared tasks.Task
 		taskEnvelope := tasks.Task{
-			ID:         taskID,
-			Type:       req.Type,
-			Payload:    req.Payload,
-			RetryCount: req.RetryCount,
+			ID:          taskID,
+			Type:        req.Type,
+			Payload:     req.Payload,
+			RetryCount:  req.RetryCount,
 			NextRetryAt: req.NextRetryAt,
 		}
 
@@ -53,6 +55,20 @@ func CreateTask(rdb *redis.Client) gin.HandlerFunc {
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{
 				"error": "failed to encode task",
+			})
+			return
+		}
+		err = storage.CreateTask(c.Request.Context(), db, storage.TaskRow{
+			ID:          taskID,
+			Type:        req.Type,
+			Payload:     req.Payload,
+			Status:      "queued",
+			ScheduledAt: executeAt,
+			Attempts:    0,
+		})
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"error": "failed to create task in DB",
 			})
 			return
 		}

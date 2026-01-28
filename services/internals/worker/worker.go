@@ -21,7 +21,7 @@ func NewWorker(rdb *redis.Client) *Worker {
 func (w *Worker) HandleTaskReady(ctx context.Context, TaskID string) error {
 	log.Println("Task received from Kafka:", TaskID)
 
-	data, err := w.rdb.Get(ctx, getTaskKey(TaskID)).Result()
+	data, err := w.rdb.Get(ctx, tasks.TaskKey(TaskID)).Result()
 	if err != nil {
 		log.Println(" failed to fetch task:", err)
 		return err
@@ -33,41 +33,24 @@ func (w *Worker) HandleTaskReady(ctx context.Context, TaskID string) error {
 		return err
 	}
 
-	// 2️⃣ Execute task
 	if err := processTask(ctx, task); err != nil {
 		log.Println("task execution failed:", err)
 		return err
 	}
 
-	// 3️⃣ (optional) mark task as completed
-	log.Println("✅ task completed:", task.ID)
+	log.Println("task completed:", task.ID)
 	return nil
-}
-
-func getTaskKey(taskID string) string {
-	return "task:" + taskID
 }
 
 func processTask(ctx context.Context, task tasks.Task) error {
 	log.Printf("⚙️ Processing task [%s] type=%s", task.ID, task.Type)
 
 	switch task.Type {
-
 	case "sendEmail":
-		payload, ok := task.Payload.(string)
-		if !ok {
-			log.Printf("unexpected payload type for sendEmail: %T", task.Payload)
-			return nil
-		}
-		return tasks.SendEmail(ctx, payload)
+		return tasks.SendEmail(ctx, task.Payload)
 
 	case "generateReport":
-		payload, ok := task.Payload.(string)
-		if !ok {
-			log.Printf("unexpected payload type for generateReport: %T", task.Payload)
-			return nil
-		}
-		return tasks.GenerateReport(ctx, payload)
+		return tasks.GenerateReport(ctx, task.Payload)
 
 	default:
 		log.Println("⚠️ unknown task type:", task.Type)

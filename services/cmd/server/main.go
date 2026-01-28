@@ -1,6 +1,7 @@
 package main
 
 import (
+	database "DistributedTaskScheduler/services/db"
 	"DistributedTaskScheduler/services/internals/api"
 	"DistributedTaskScheduler/services/internals/kafka"
 	"DistributedTaskScheduler/services/internals/redis"
@@ -19,6 +20,8 @@ func main() {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+	db := database.Connect()
+	defer db.Close()
 
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
@@ -41,7 +44,7 @@ func main() {
 		s.Start(ctx)
 	}()
 
-	worker := worker.NewWorker(rdb)
+	worker := worker.NewWorker(rdb, db)
 
 	consumer, err := kafka.NewTaskConsumer(
 		ctx,
@@ -55,7 +58,7 @@ func main() {
 	}
 	go consumer.HandleTaskReady(ctx)
 
-	router := api.RegisterRoutes(rdb)
+	router := api.RegisterRoutes(rdb, db)
 
 	server := &http.Server{
 		Addr:    ":8180",

@@ -2,6 +2,7 @@ package worker
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"log"
 
@@ -12,10 +13,11 @@ import (
 
 type Worker struct {
 	rdb *redis.Client
+	db  *sql.DB
 }
 
-func NewWorker(rdb *redis.Client) *Worker {
-	return &Worker{rdb: rdb}
+func NewWorker(rdb *redis.Client, db *sql.DB) *Worker {
+	return &Worker{rdb: rdb, db: db}
 }
 
 func (w *Worker) HandleTaskReady(ctx context.Context, TaskID string) error {

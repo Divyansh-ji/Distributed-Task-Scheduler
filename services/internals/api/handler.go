@@ -2,6 +2,7 @@ package api
 
 import (
 	"DistributedTaskScheduler/services/internals/scheduler"
+	"DistributedTaskScheduler/services/internals/tasks"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -39,15 +40,13 @@ func CreateTask(rdb *redis.Client) gin.HandlerFunc {
 
 		executeAt := time.Now()
 
-		// 🔹 Persist full task details by ID for worker consumption
-		taskEnvelope := struct {
-			ID      string `json:"id"`
-			Type    string `json:"type"`
-			Payload string `json:"payload"`
-		}{
-			ID:      taskID,
-			Type:    req.Type,
-			Payload: req.Payload,
+		// 🔹 Persist full task details by ID for worker consumption using shared tasks.Task
+		taskEnvelope := tasks.Task{
+			ID:         taskID,
+			Type:       req.Type,
+			Payload:    req.Payload,
+			RetryCount: req.RetryCount,
+			NextRetryAt: req.NextRetryAt,
 		}
 
 		raw, err := json.Marshal(taskEnvelope)

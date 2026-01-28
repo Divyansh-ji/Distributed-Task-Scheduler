@@ -1,20 +1,17 @@
 package tasks
 
 import (
-	"DistributedTaskScheduler/services/internals/api"
 	"context"
 	"fmt"
 )
 
-func SendEmail(ctx context.Context, payload api.CreateTaskRequest) error {
-	email := payload
-	fmt.Println("Hey this is your email", email)
+func SendEmail(ctx context.Context, payload string) error {
+	fmt.Println("Hey this is your email", payload)
 	return nil
 }
 
-func GenerateReport(ctx context.Context, payload api.CreateTaskRequest) error {
-	report := payload
-	fmt.Println("The report generated", report)
+func GenerateReport(ctx context.Context, payload string) error {
+	fmt.Println("The report generated", payload)
 	return nil
 }
 

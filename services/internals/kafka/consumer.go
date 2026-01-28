@@ -3,6 +3,7 @@ package kafka
 import (
 	"context"
 	"encoding/json"
+	"log"
 
 	"github.com/IBM/sarama"
 )
@@ -41,6 +42,33 @@ func NewTaskConsumer(
 		handler: handler,
 	}, nil
 }
+
+// Setup is run at the beginning of a new session, before ConsumeClaim.
+func (c *TaskEventConsumer) Setup(sarama.ConsumerGroupSession) error {
+	// Hook for future initialization or logging.
+	return nil
+}
+
+// Cleanup is run at the end of a session, once all ConsumeClaim goroutines have exited.
+func (c *TaskEventConsumer) Cleanup(sarama.ConsumerGroupSession) error {
+	// Hook for future cleanup or logging.
+	return nil
+}
+
+// HandleTaskReady starts the consumer loop and processes messages until the context is cancelled.
+func (c *TaskEventConsumer) HandleTaskReady(ctx context.Context) {
+	for {
+		if err := c.group.Consume(ctx, c.topics, c); err != nil {
+			log.Printf("Kafka consume error: %v", err)
+		}
+
+		// Exit when the context is cancelled (e.g., on application shutdown).
+		if ctx.Err() != nil {
+			return
+		}
+	}
+}
+
 func (c *TaskEventConsumer) ConsumeClaim(
 	session sarama.ConsumerGroupSession,
 	claim sarama.ConsumerGroupClaim,
@@ -53,9 +81,10 @@ func (c *TaskEventConsumer) ConsumeClaim(
 			session.MarkMessage(msg, "")
 			continue
 		}
-		err := c.handler.HandleTaskReady(c.ctx, payload.TaskID)
+		err := c.handler.HandleTaskReady(session.Context(), payload.TaskID)
 		if err != nil {
-			//retry dlq
+			// TODO: implement retry or dead-letter queue handling.
+			log.Printf("task handler error for task %s: %v", payload.TaskID, err)
 		}
 		session.MarkMessage(msg, "")
 

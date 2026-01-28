@@ -19,12 +19,10 @@ func NewWorker(rdb *redis.Client) *Worker {
 	return &Worker{rdb: rdb}
 }
 
+func (w *Worker) HandleTaskReady(ctx context.Context, TaskID string) error {
+	log.Println("📥 Task received from Kafka:", TaskID)
 
-func (w *Worker) HandleTaskReady(ctx context.Context, taskID string) error {
-	log.Println("📥 Task received from Kafka:", taskID)
-
-
-	data, err := w.rdb.Get(ctx, taskID).Result()
+	data, err := w.rdb.Get(ctx, getTaskKey(TaskID)).Result()
 	if err != nil {
 		log.Println("❌ failed to fetch task:", err)
 		return err
@@ -51,6 +49,10 @@ type Task struct {
 	ID      string
 	Type    string
 	Payload api.CreateTaskRequest
+}
+
+func getTaskKey(taskID string) string {
+	return "task:" + taskID
 }
 
 func processTask(ctx context.Context, task Task) error {

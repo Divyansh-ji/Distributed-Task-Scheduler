@@ -3,6 +3,7 @@ package api
 import (
 	"DistributedTaskScheduler/services/internals/scheduler"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -22,6 +23,8 @@ type TaskResponse struct {
 	TaskID string `json:"task_id"`
 	Status string `json:"status"`
 }
+
+const TaskKey = "task:%s"
 
 func CreateTask(rdb *redis.Client) gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -56,7 +59,8 @@ func CreateTask(rdb *redis.Client) gin.HandlerFunc {
 		}
 
 		// Store task details with a TTL to avoid indefinite buildup
-		if err := rdb.Set(c.Request.Context(), "task:"+taskID, raw, 1*time.Hour).Err(); err != nil {
+		key := fmt.Sprintf(TaskKey, taskID)
+		if err := rdb.Set(c.Request.Context(), key, raw, 1*time.Hour).Err(); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{
 				"error": "failed to persist task",
 			})

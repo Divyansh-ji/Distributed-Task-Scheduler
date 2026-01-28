@@ -30,7 +30,7 @@ func main() {
 			log.Printf("Redis close error: %v", err)
 		}
 	}()
-	producer, err := kafka.NewTaskProducer([]string{"localhost :9092"}, "task.ready")
+	producer, err := kafka.NewTaskProducer([]string{"localhost:9092"}, kafka.TaskReadyTopic)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -41,10 +41,19 @@ func main() {
 		s.Start(ctx)
 	}()
 
-	go func() {
-		log.Println("👷 Worker started")
-		worker.Worker(ctx, rdb)
-	}()
+	worker := worker.NewWorker(rdb)
+
+	consumer, err := kafka.NewTaskConsumer(
+		ctx,
+		[]string{"localhost:9092"},
+		"task-worker",
+		[]string{kafka.TaskReadyTopic},
+		worker,
+	)
+	if err != nil {
+		log.Fatal(err)
+	}
+	go consumer.HandleTaskReady(ctx)
 
 	router := api.RegisterRoutes(rdb)
 

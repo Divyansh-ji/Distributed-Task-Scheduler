@@ -8,18 +8,21 @@ import (
 	"time"
 
 	"DistributedTaskScheduler/services/db/storage"
+	"DistributedTaskScheduler/services/internals/kafka"
+	"DistributedTaskScheduler/services/internals/scheduler"
 	"DistributedTaskScheduler/services/internals/tasks"
 
 	"github.com/redis/go-redis/v9"
 )
 
 type Worker struct {
-	rdb *redis.Client
-	db  *sql.DB
+	rdb      *redis.Client
+	db       *sql.DB
+	producer *kafka.TaskEventProducer
 }
 
-func NewWorker(rdb *redis.Client, db *sql.DB) *Worker {
-	return &Worker{rdb: rdb, db: db}
+func NewWorker(rdb *redis.Client, db *sql.DB, producer *kafka.TaskEventProducer) *Worker {
+	return &Worker{rdb: rdb, db: db, producer: producer}
 }
 
 func (w *Worker) HandleTaskReady(ctx context.Context, taskID string) error {
@@ -44,6 +47,7 @@ func (w *Worker) HandleTaskReady(ctx context.Context, taskID string) error {
 			Type:       taskRow.Type,
 			Payload:    taskRow.Payload,
 			RetryCount: taskRow.Attempts,
+			MaxRetries: taskRow.MaxRetries,
 		}
 		raw, _ := json.Marshal(task)
 		_ = w.rdb.Set(ctx, tasks.TaskKey(taskID), raw, 1*time.Hour).Err()
@@ -54,21 +58,52 @@ func (w *Worker) HandleTaskReady(ctx context.Context, taskID string) error {
 
 	now := time.Now()
 	_ = storage.UpdateTaskStatus(ctx, w.db, taskID, "running", task.RetryCount+1,
-		sql.NullTime{Time: now, Valid: true}, sql.NullTime{}, sql.NullString{})
+		sql.NullTime{Time: now, Valid: true}, sql.NullTime{}, sql.NullString{}, task.MaxRetries)
 
 	if err := processTask(ctx, task); err != nil {
 		log.Println("task execution failed:", err)
-		_ = storage.UpdateTaskStatus(ctx, w.db, taskID, "failed", task.RetryCount+1,
+		attempts := task.RetryCount + 1
+		maxRetries := task.MaxRetries
+		if maxRetries <= 0 {
+			maxRetries = 3
+		}
+
+		if attempts <= maxRetries {
+			// Retry: update once, re-enqueue, refresh cache
+			_ = storage.UpdateTaskStatus(ctx, w.db, taskID, "retry_scheduled", attempts,
+				sql.NullTime{Time: now, Valid: true},
+				sql.NullTime{},
+				sql.NullString{String: err.Error(), Valid: true},
+				task.MaxRetries)
+			nextRetryAt := time.Now().Add(time.Duration(attempts) * time.Second)
+			_ = scheduler.TaskAdd(ctx, w.rdb, taskID, nextRetryAt)
+			task.RetryCount = attempts
+			raw, _ := json.Marshal(task)
+			_ = w.rdb.Set(ctx, tasks.TaskKey(taskID), raw, 1*time.Hour).Err()
+			log.Println("task retried:", taskID)
+			return nil
+		}
+
+		// Dead: update once, publish to DLQ
+		_ = storage.UpdateTaskStatus(ctx, w.db, taskID, "dead", attempts,
 			sql.NullTime{Time: now, Valid: true},
 			sql.NullTime{Time: time.Now(), Valid: true},
-			sql.NullString{String: err.Error(), Valid: true})
+			sql.NullString{String: err.Error(), Valid: true},
+			task.MaxRetries)
+		if w.producer != nil {
+			if dlqErr := w.producer.PublishTaskDLQ(ctx, taskID, err.Error(), attempts); dlqErr != nil {
+				log.Println("failed to publish task DLQ:", dlqErr)
+			}
+		}
+		log.Println("task dead:", taskID)
 		return err
 	}
 
 	_ = storage.UpdateTaskStatus(ctx, w.db, taskID, "success", task.RetryCount+1,
 		sql.NullTime{Time: now, Valid: true},
 		sql.NullTime{Time: time.Now(), Valid: true},
-		sql.NullString{})
+		sql.NullString{},
+		task.MaxRetries)
 	log.Println("task completed:", task.ID)
 	return nil
 }

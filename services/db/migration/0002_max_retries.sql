@@ -1,0 +1,1 @@
+ALTER TABLE tasks ADD COLUMN max_retries INT NOT NULL DEFAULT 0;

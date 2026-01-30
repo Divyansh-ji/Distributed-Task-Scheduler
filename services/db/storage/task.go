@@ -16,11 +16,12 @@ type TaskRow struct {
 	FinishedAt  sql.NullTime // nullable
 	Attempts    int
 	LastError   sql.NullString // nullable
+	MaxRetries  int
 }
 
 const insertTask = `
-INSERT INTO tasks (id, type, payload, status, scheduled_at)
-VALUES ($1, $2, $3, $4, $5)
+INSERT INTO tasks (id, type, payload, status, scheduled_at , max_retries)
+VALUES ($1, $2, $3, $4, $5, $6)
 `
 
 func CreateTask(ctx context.Context, db *sql.DB, t TaskRow) error {
@@ -30,12 +31,13 @@ func CreateTask(ctx context.Context, db *sql.DB, t TaskRow) error {
 		t.Payload,
 		t.Status,
 		t.ScheduledAt,
+		t.MaxRetries,
 	)
 	return err
 }
 
 const selectTask = `
-SELECT id, type, payload, status, scheduled_at, started_at, finished_at, attempts, last_error
+SELECT id, type, payload, status, scheduled_at, started_at, finished_at,max_retries, attempts, last_error
 FROM tasks
 WHERE id = $1
 `
@@ -50,6 +52,7 @@ func GetTask(ctx context.Context, db *sql.DB, id string) (*TaskRow, error) {
 		&t.ScheduledAt,
 		&t.StartedAt,
 		&t.FinishedAt,
+		&t.MaxRetries,
 		&t.Attempts,
 		&t.LastError,
 	)
@@ -65,7 +68,8 @@ SET status = $2,
     attempts = $3,
     started_at = $4,
     finished_at = $5,
-    last_error = $6
+    last_error = $6,
+    max_retries = $7
 WHERE id = $1
 `
 
@@ -78,14 +82,9 @@ func UpdateTaskStatus(
 	startedAt sql.NullTime,
 	finishedAt sql.NullTime,
 	lastError sql.NullString,
+	maxRetries int,
 ) error {
 	_, err := db.ExecContext(ctx, updateTaskStatus,
-		id,
-		status,
-		attempts,
-		startedAt,
-		finishedAt,
-		lastError,
-	)
+		id, status, attempts, startedAt, finishedAt, lastError, maxRetries)
 	return err
 }

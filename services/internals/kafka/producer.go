@@ -44,3 +44,21 @@ func (p *TaskEventProducer) PublishTaskReady(ctx context.Context, taskID string)
 	_, _, err := p.producer.SendMessage(msg)
 	return err
 }
+func (p *TaskEventProducer) PublishTaskDLQ(ctx context.Context, taskID string, lastError string, attempt int) error {
+	payload := map[string]interface{}{
+		"task_id":    taskID,
+		"last_error": lastError,
+		"attempts":   attempt,
+	}
+	data, err := json.Marshal(payload)
+	if err != nil {
+		return err
+	}
+	msg := &sarama.ProducerMessage{
+		Topic: "task.dead",
+		Key:   sarama.StringEncoder(taskID),
+		Value: sarama.ByteEncoder(data),
+	}
+	_, _, err = p.producer.SendMessage(msg)
+	return err
+}

@@ -44,7 +44,7 @@ func main() {
 		s.Start(ctx)
 	}()
 
-	worker := worker.NewWorker(rdb, db)
+	worker := worker.NewWorker(rdb, db, producer)
 
 	consumer, err := kafka.NewTaskConsumer(
 		ctx,

@@ -38,13 +38,18 @@ func main() {
 		log.Fatal(err)
 	}
 
+	dlqProducer, err := kafka.NewTaskProducer([]string{"localhost:9092"}, "task.dead")
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	s := scheduler.NewScheduler(rdb, producer, 500*time.Millisecond)
 	go func() {
 		log.Println("⏱ Scheduler started")
 		s.Start(ctx)
 	}()
 
-	worker := worker.NewWorker(rdb, db, producer)
+	worker := worker.NewWorker(rdb, db, dlqProducer)
 
 	consumer, err := kafka.NewTaskConsumer(
 		ctx,

@@ -2,6 +2,7 @@ package api
 
 import (
 	"DistributedTaskScheduler/services/db/storage"
+	"DistributedTaskScheduler/services/internals/metrices"
 	"DistributedTaskScheduler/services/internals/scheduler"
 	"DistributedTaskScheduler/services/internals/tasks"
 	"database/sql"
@@ -100,5 +101,6 @@ func CreateTask(rdb *redis.Client, db *sql.DB) gin.HandlerFunc {
 			TaskID: taskID,
 			Status: "scheduled",
 		})
+		metrices.TasksCreated.Inc()
 	}
 }

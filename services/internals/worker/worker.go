@@ -9,6 +9,7 @@ import (
 
 	"DistributedTaskScheduler/services/db/storage"
 	"DistributedTaskScheduler/services/internals/kafka"
+	"DistributedTaskScheduler/services/internals/metrices"
 	"DistributedTaskScheduler/services/internals/scheduler"
 	"DistributedTaskScheduler/services/internals/tasks"
 
@@ -60,6 +61,12 @@ func (w *Worker) HandleTaskReady(ctx context.Context, taskID string) error {
 	_ = storage.UpdateTaskStatus(ctx, w.db, taskID, "running", task.RetryCount+1,
 		sql.NullTime{Time: now, Valid: true}, sql.NullTime{}, sql.NullString{}, task.MaxRetries)
 
+	startTime := time.Now()
+	defer func() {
+		duration := time.Since(startTime)
+		metrices.TasksProcessingTime.Observe(duration.Seconds())
+	}()
+
 	if err := processTask(ctx, task); err != nil {
 		log.Println("task execution failed:", err)
 		attempts := task.RetryCount + 1
@@ -81,6 +88,7 @@ func (w *Worker) HandleTaskReady(ctx context.Context, taskID string) error {
 			raw, _ := json.Marshal(task)
 			_ = w.rdb.Set(ctx, tasks.TaskKey(taskID), raw, 1*time.Hour).Err()
 			log.Println("task retried:", taskID)
+			metrices.TasksRetried.Inc()
 			return nil
 		}
 
@@ -96,6 +104,8 @@ func (w *Worker) HandleTaskReady(ctx context.Context, taskID string) error {
 			}
 		}
 		log.Println("task dead:", taskID)
+		metrices.TasksDead.Inc()
+
 		return err
 	}
 
@@ -105,6 +115,7 @@ func (w *Worker) HandleTaskReady(ctx context.Context, taskID string) error {
 		sql.NullString{},
 		task.MaxRetries)
 	log.Println("task completed:", task.ID)
+	metrices.TasksCompleted.Inc()
 	return nil
 }
 

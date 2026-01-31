@@ -10,15 +10,16 @@ import (
 )
 
 func Connect() *sql.DB {
-	// load .env
-	err := godotenv.Load()
-	if err != nil {
-		log.Fatal("Error loading .env file")
-	}
+	// load .env from multiple possible locations (project root vs services/)
+	_ = godotenv.Load("services/.env")
+	_ = godotenv.Load(".env")
 
 	dsn := os.Getenv("DB_DSN")
 	if dsn == "" {
-		log.Fatal("DB_DSN not found in env")
+		dsn = os.Getenv("POSTGRES_DSN")
+	}
+	if dsn == "" {
+		log.Fatal("DB_DSN or POSTGRES_DSN not found in env")
 	}
 
 	db, err := sql.Open("postgres", dsn)

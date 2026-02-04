@@ -7,13 +7,17 @@ import (
 	"DistributedTaskScheduler/services/internals/redis"
 	"DistributedTaskScheduler/services/internals/scheduler"
 	"DistributedTaskScheduler/services/internals/worker"
+	"DistributedTaskScheduler/services/web"
 	"context"
+	"io/fs"
 	"log"
 	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
+
+	"github.com/gin-gonic/gin"
 )
 
 func main() {
@@ -64,6 +68,14 @@ func main() {
 	go consumer.HandleTaskReady(ctx)
 
 	router := api.RegisterRoutes(rdb, db)
+
+	// Dashboard UI (embedded)
+	staticFS, _ := fs.Sub(web.FS, "static")
+	router.StaticFS("/static", http.FS(staticFS))
+	router.GET("/", func(c *gin.Context) {
+		data, _ := fs.ReadFile(web.FS, "index.html")
+		c.Data(http.StatusOK, "text/html; charset=utf-8", data)
+	})
 
 	server := &http.Server{
 		Addr:    ":8180",

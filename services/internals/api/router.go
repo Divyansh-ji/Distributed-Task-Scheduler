@@ -12,6 +12,7 @@ func RegisterRoutes(rdb *redis.Client, db *sql.DB) *gin.Engine {
 	router := gin.Default()
 
 	router.POST("/tasks", CreateTask(rdb, db))
+	router.GET("/tasks/:id", GetTaskByID(db))
 
 	router.GET("/metrics", gin.WrapH(promhttp.Handler()))
 

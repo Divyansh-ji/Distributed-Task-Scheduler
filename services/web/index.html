@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Task Scheduler · Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/static/styles.css" />
+</head>
+<body>
+  <div class="app">
+    <header class="header">
+      <h1 class="logo">Task Scheduler</h1>
+      <p class="tagline">Create and monitor distributed tasks</p>
+    </header>
+
+    <main class="main">
+      <section class="card create-card">
+        <h2>Create task</h2>
+        <form id="create-form" class="form">
+          <div class="field">
+            <label for="task-type">Type</label>
+            <input id="task-type" name="type" type="text" placeholder="e.g. send_email" required />
+          </div>
+          <div class="field">
+            <label for="task-payload">Payload (JSON string)</label>
+            <textarea id="task-payload" name="payload" rows="3" placeholder='{"to": "user@example.com"}' required></textarea>
+          </div>
+          <div class="field row">
+            <label for="retry-count">Retry count</label>
+            <input id="retry-count" name="retryCount" type="number" min="0" value="0" />
+          </div>
+          <button type="submit" class="btn btn-primary" id="create-btn">Schedule task</button>
+        </form>
+        <div id="create-result" class="result" aria-live="polite"></div>
+      </section>
+
+      <section class="card lookup-card">
+        <h2>Look up task</h2>
+        <div class="lookup-row">
+          <input id="task-id" type="text" placeholder="Paste task ID" />
+          <button type="button" class="btn btn-secondary" id="lookup-btn">Look up</button>
+        </div>
+        <div id="lookup-result" class="result task-detail" aria-live="polite"></div>
+      </section>
+
+      <section class="card recent-card">
+        <h2>Recent task IDs</h2>
+        <p class="hint">Click an ID to look up status.</p>
+        <ul id="recent-list" class="recent-list"></ul>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <a href="/metrics" target="_blank" rel="noopener">Metrics</a>
+    </footer>
+  </div>
+  <script src="/static/app.js"></script>
+</body>
+</html>

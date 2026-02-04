@@ -28,6 +28,20 @@ type TaskResponse struct {
 	Status string `json:"status"`
 }
 
+// TaskDetailsResponse for GET /tasks/:id (debugging & dashboards)
+type TaskDetailsResponse struct {
+	ID          string     `json:"id"`
+	Type        string     `json:"type"`
+	Payload     string     `json:"payload"`
+	Status      string     `json:"status"`
+	ScheduledAt time.Time  `json:"scheduledAt"`
+	StartedAt   *time.Time `json:"startedAt,omitempty"`
+	FinishedAt  *time.Time `json:"finishedAt,omitempty"`
+	Attempts    int        `json:"attempts"`
+	LastError   *string    `json:"lastError,omitempty"`
+	MaxRetries  int        `json:"maxRetries"`
+}
+
 const TaskKey = "task:%s"
 
 func CreateTask(rdb *redis.Client, db *sql.DB) gin.HandlerFunc {
@@ -102,5 +116,47 @@ func CreateTask(rdb *redis.Client, db *sql.DB) gin.HandlerFunc {
 			Status: "scheduled",
 		})
 		metrices.TasksCreated.Inc()
+	}
+}
+
+func GetTaskByID(db *sql.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		taskID := c.Param("id")
+		if taskID == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "task id required"})
+			return
+		}
+		taskRow, err := storage.GetTask(c.Request.Context(), db, taskID)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				c.JSON(http.StatusNotFound, gin.H{"error": "task not found"})
+				return
+			}
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to fetch task"})
+			return
+		}
+		var startedAt, finishedAt *time.Time
+		if taskRow.StartedAt.Valid {
+			startedAt = &taskRow.StartedAt.Time
+		}
+		if taskRow.FinishedAt.Valid {
+			finishedAt = &taskRow.FinishedAt.Time
+		}
+		var lastError *string
+		if taskRow.LastError.Valid {
+			lastError = &taskRow.LastError.String
+		}
+		c.JSON(http.StatusOK, TaskDetailsResponse{
+			ID:          taskRow.ID,
+			Type:        taskRow.Type,
+			Payload:     taskRow.Payload,
+			Status:      taskRow.Status,
+			ScheduledAt: taskRow.ScheduledAt,
+			StartedAt:   startedAt,
+			FinishedAt:  finishedAt,
+			Attempts:    taskRow.Attempts,
+			LastError:   lastError,
+			MaxRetries:  taskRow.MaxRetries,
+		})
 	}
 }

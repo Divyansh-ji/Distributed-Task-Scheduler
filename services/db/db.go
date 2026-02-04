@@ -6,11 +6,11 @@ import (
 	"os"
 
 	"github.com/joho/godotenv"
-	_ "github.com/lib/pq" // Postgres driver
+	_ "github.com/lib/pq"
 )
 
 func Connect() *sql.DB {
-	// load .env from multiple possible locations (project root vs services/)
+
 	_ = godotenv.Load("services/.env")
 	_ = godotenv.Load(".env")
 
@@ -27,7 +27,6 @@ func Connect() *sql.DB {
 		log.Fatal("Failed to open DB:", err)
 	}
 
-	// verify connection
 	if err := db.Ping(); err != nil {
 		log.Fatal("Failed to connect to DB:", err)
 	}

@@ -21,7 +21,7 @@ func NewRedisClient() *redis.Client {
 		MinIdleConns: 5,
 	})
 
-	// ---- fail fast with timeout ----
+
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 

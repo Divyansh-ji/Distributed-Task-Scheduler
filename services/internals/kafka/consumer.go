@@ -43,7 +43,7 @@ func NewTaskConsumer(
 	}, nil
 }
 
-// Setup is run at the beginning of a new session, before ConsumeClaim.
+
 func (c *TaskEventConsumer) Setup(sarama.ConsumerGroupSession) error {
 	// Hook for future initialization or logging.
 	return nil
@@ -62,7 +62,7 @@ func (c *TaskEventConsumer) HandleTaskReady(ctx context.Context) {
 			log.Printf("Kafka consume error: %v", err)
 		}
 
-		// Exit when the context is cancelled (e.g., on application shutdown).
+
 		if ctx.Err() != nil {
 			return
 		}
